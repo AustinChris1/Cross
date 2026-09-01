@@ -6,7 +6,7 @@ pragma solidity 0.8.30;
 
 import {Cross} from "../Cross.sol";
 import {FadeVault} from "../FadeVault.sol";
-import {IERC20, IERC6909, IBinaryMarketsModule, IBinaryMarket} from "../interfaces/IDreamDex.sol";
+import {IERC20, IERC6909, IBinaryMarketsModule, IBinaryMarket, IBinarySettlement} from "../interfaces/IDreamDex.sol";
 
 interface ITestUsdc {
     function faucet(uint256 amount) external;
@@ -166,6 +166,18 @@ contract SimSettleGate {
             if (err.length >= 4) sel = bytes4(err);
         }
         bytes memory out = abi.encode(reverted, sel, Cross.NotResolved.selector, uint8(cross.getMatch(matchId).state));
+        assembly {
+            return(add(out, 32), mload(out))
+        }
+    }
+}
+
+/// Decodes a real settlement record through the production interface. A flat-return interface
+/// reverts here, which is the bug that a resolution-gated fill test cannot reach.
+contract SimSettlementRead {
+    constructor(address settlement, uint256 marketKey) {
+        IBinarySettlement.Record memory r = IBinarySettlement(settlement).getSettlement(marketKey);
+        bytes memory out = abi.encode(r.finalized, r.voided, r.backing, r.collateralToken, r.payoutNumerators);
         assembly {
             return(add(out, 32), mload(out))
         }

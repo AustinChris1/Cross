@@ -47,9 +47,13 @@ async function tx(label, address, abi, functionName, args) {
 
 // 1. pick the soonest window that still has headroom
 const now = Math.floor(Date.now() / 1000);
+// A 5m window lives 300s, so it can never clear the solver's headroom rule. Take whichever
+// window expires soonest while still leaving room to post, fill and settle.
 const windows = await fillableWindows(ex, env.VENUE_ID, now);
-const short = windows.filter((m) => Number(m.intervalSec) <= 900).sort((a, b) => Number(a.expiry) - Number(b.expiry))[0];
-if (!short) throw new Error("no short window with headroom; try again in a minute");
+const short = windows
+  .filter((m) => Number(m.expiry) - now > 420 && Number(m.intervalSec) <= 3600)
+  .sort((a, b) => Number(a.expiry) - Number(b.expiry))[0];
+if (!short) throw new Error("no window with enough headroom right now; try again in a minute");
 const [priced] = await priceWindows(ex, [short], now);
 console.log(`window   ${short.asset} ${short.interval}  expires in ${Number(short.expiry) - now}s`);
 console.log(`fair UP  ${priced.fairUp == null ? "n/a" : (priced.fairUp * 100).toFixed(1) + "%"}  (spot ${priced.spot} vs open ${priced.opening})`);

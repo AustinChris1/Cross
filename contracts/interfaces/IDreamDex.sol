@@ -61,20 +61,20 @@ interface IBinaryMarket {
 }
 
 interface IBinarySettlement {
-    function getSettlement(uint256 marketKey)
-        external
-        view
-        returns (
-            address collateralToken,
-            uint128 backing,
-            bool finalized,
-            bool voided,
-            uint256 settlementFeeBpsTimes1k,
-            address feeRecipient,
-            address pool,
-            uint64 nonce,
-            uint256[] memory payoutNumerators
-        );
+    // One struct, not nine returns: the tuple is dynamic, so a flat decode shifts by a word.
+    struct Record {
+        address collateralToken;
+        uint128 backing;
+        bool finalized;
+        bool voided;
+        uint256 settlementFeeBpsTimes1k;
+        address feeRecipient;
+        address pool;
+        uint64 nonce;
+        uint256[] payoutNumerators;
+    }
+
+    function getSettlement(uint256 marketKey) external view returns (Record memory);
 }
 
 interface IERC6909 {

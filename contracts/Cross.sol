@@ -15,6 +15,8 @@ contract Cross {
     uint256 public constant PRICE_SCALE = 1e6;
     // Markets this close to expiry can lock mid-flight, so they are refused.
     uint64 public constant MIN_HEADROOM = 300;
+    // How long after expiry a participant may pull their own leg out instead of waiting on settle.
+    uint64 public constant CLAIM_GRACE = 2 hours;
     // Outcome index convention on dreamDEX binaries.
     uint8 public constant UP = 0;
     uint8 public constant DOWN = 1;
@@ -80,6 +82,7 @@ contract Cross {
     event ChallengeCancelled(uint256 indexed matchId);
     event MatchSettled(uint256 indexed matchId, address indexed winner, uint256 payout, uint256 fee, bool voided);
     event FeeUpdated(uint16 feeBps, address feeRecipient);
+    event LegsClaimed(uint256 indexed matchId, address indexed maker, address indexed taker);
 
     error NotOwner();
     error Reentrancy();
@@ -95,6 +98,7 @@ contract Cross {
     error JoinClosed();
     error NotResolved();
     error TransferFailed();
+    error TooEarly();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -235,8 +239,7 @@ contract Cross {
         if (!voided && !mk.isResolved()) revert NotResolved();
 
         uint256 key = _marketKey(m.yesId);
-        (, , bool finalized, , , , , , ) = settlement.getSettlement(key);
-        if (!finalized) module.finalizeMarket(m.marketId);
+        if (!settlement.getSettlement(key).finalized) module.finalizeMarket(m.marketId);
 
         _grantOperator(mk.outcomeToken());
         m.state = State.Settled;
@@ -274,6 +277,23 @@ contract Cross {
             if (v[i] > v[best]) best = i;
         }
         return best;
+    }
+
+    /// @notice Escape hatch. Long after expiry a participant can take their own outcome token and
+    ///         redeem it directly on dreamDEX, so a failure inside settle can never strand a match.
+    function claimLegs(uint256 matchId) external nonReentrant {
+        Match storage m = matches[matchId];
+        if (m.state != State.Filled) revert BadState();
+        if (msg.sender != m.maker && msg.sender != m.taker) revert NotOwner();
+        if (block.timestamp < uint256(m.expiry) + CLAIM_GRACE) revert TooEarly();
+
+        m.state = State.Settled;
+        address outcomeToken = IBinaryMarket(m.market).outcomeToken();
+        uint256 makerId = m.makerSide == UP ? m.yesId : m.noId;
+        uint256 takerId = m.makerSide == UP ? m.noId : m.yesId;
+        IERC6909(outcomeToken).transfer(m.maker, makerId, uint256(m.contracts));
+        IERC6909(outcomeToken).transfer(m.taker, takerId, uint256(m.contracts));
+        emit LegsClaimed(matchId, m.maker, m.taker);
     }
 
     // ------------------------------------------------------------------ views
