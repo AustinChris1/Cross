@@ -176,8 +176,18 @@ contract FadeVault {
         emit Faded(matchId, m.marketId, stake, pricePaid);
     }
 
+    /// @notice Called by Cross the moment a match settles, so committed capital is never double counted.
+    function onMatchSettled(uint256 matchId) external {
+        if (msg.sender != address(cross)) revert NotQuoter();
+        _release(matchId);
+    }
+
     /// @notice Release a settled match from the exposure counters. Permissionless and idempotent.
     function release(uint256 matchId) public {
+        _release(matchId);
+    }
+
+    function _release(uint256 matchId) private {
         if (!filled[matchId]) return;
         ICross.Match memory m = cross.getMatch(matchId);
         // 3 = Settled, 4 = Cancelled.
@@ -190,7 +200,7 @@ contract FadeVault {
     }
 
     function releaseMany(uint256[] calldata matchIds) external {
-        for (uint256 i = 0; i < matchIds.length; i++) release(matchIds[i]);
+        for (uint256 i = 0; i < matchIds.length; i++) _release(matchIds[i]);
     }
 
     // ----------------------------------------------------------------- admin

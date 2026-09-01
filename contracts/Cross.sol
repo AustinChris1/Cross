@@ -3,6 +3,10 @@ pragma solidity 0.8.30;
 
 import {IBinaryMarketsModule, IBinaryPool, IBinaryMarket, IBinarySettlement, IERC6909, IERC20} from "./interfaces/IDreamDex.sol";
 
+interface ICrossSettleHook {
+    function onMatchSettled(uint256 matchId) external;
+}
+
 /// @title Cross - head-to-head matches on dreamDEX Event Contracts
 /// @notice Two opposite-side buyers cross with no seller: the pool mints a fresh Up/Down pair
 ///         from their combined collateral and Cross holds both legs until the window resolves.
@@ -243,6 +247,8 @@ contract Cross {
             module.redeem(operatorId, venueId, m.marketId, DOWN, uint256(m.contracts));
             _push(m.maker, m.makerStake);
             _push(m.taker, m.contracts - m.makerStake);
+            _notify(m.maker, matchId);
+            _notify(m.taker, matchId);
             emit MatchSettled(matchId, address(0), 0, 0, true);
             return;
         }
@@ -255,6 +261,8 @@ contract Cross {
         uint256 payout = uint256(m.contracts) - fee;
         if (fee > 0) _push(feeRecipient, fee);
         _push(winner, payout);
+        _notify(m.maker, matchId);
+        _notify(m.taker, matchId);
 
         emit MatchSettled(matchId, winner, payout, fee, false);
     }
@@ -331,6 +339,12 @@ contract Cross {
         if (operatorGranted[outcomeToken]) return;
         IERC6909(outcomeToken).setOperator(address(module), true);
         operatorGranted[outcomeToken] = true;
+    }
+
+    /// A pooled participant needs to know its stake came back; a failure here must not block payout.
+    function _notify(address who, uint256 matchId) private {
+        if (who.code.length == 0) return;
+        try ICrossSettleHook(who).onMatchSettled{gas: 120_000}(matchId) {} catch {}
     }
 
     function _pull(address from, uint256 amount) private {

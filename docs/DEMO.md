@@ -1,0 +1,93 @@
+# Demo script (2 to 3 minutes)
+
+The whole lifecycle fits inside one 5-minute window, so nothing here is a mock or a
+time-lapse. Record with two browser profiles side by side (maker and taker) plus a terminal
+running the solver.
+
+## Before recording
+
+```sh
+npm install && npm run build
+npm run simulate            # have this output on screen already, it is the proof slide
+npm run deploy              # needs STT in the deployer
+cd web && npm run dev
+DRY_RUN=false node solver/index.mjs
+```
+
+Fund both browser wallets with `Get 1000 test tUSDC` in the app, and deposit ~500 into the
+vault so the fade has room.
+
+## 0:00 to 0:20 - the problem
+
+> "People bet each other on price moves in group chats every day. There is no way to settle
+> it, and nobody wants to be the bookie. That is the whole product."
+
+Show a chat message: "bet you BTC dumps this hour".
+
+## 0:20 to 0:50 - the primitive
+
+Show the dreamDEX docs line on screen:
+
+> "Two opposite-side buyers can cross with no seller at all - the pool mints a fresh Up/Down
+> pair from their combined collateral."
+
+> "Every other venue needs a house or a book. Here, two people are enough. That is the fill
+> path CROSS is built on, and it is why a brand new order book with no depth cannot stop a
+> match from filling."
+
+## 0:50 to 1:30 - post and fill
+
+In the app, pick the soonest BTC 5m or 15m window.
+
+- Point at the race panel: opening print, live spot, the clock.
+- Point at the risk box: **one input, two numbers.** "I risk 11.60 to win 8.40." Say out loud
+  that the payout is exact because there is no order book to slip against.
+- Post UP. Copy the challenge link.
+- In the second browser, open the link and take DOWN. Show both wallets signing.
+- Show the match row flip to **filled**, and the explorer tx: one `mintSet` call, both legs
+  now escrowed by Cross.
+
+## 1:30 to 2:10 - the other side
+
+Cut to the terminal:
+
+```
+#7 BTC 15m maker UP@0.580 -> vault DOWN@0.420
+    BTC spot 77759.99 vs open 77969.40 (-0.269%), 370s left, vol 28% -> fair UP 0.3%
+    fair DOWN 0.997  limit 0.967  edge 57.7pts  TAKE
+```
+
+> "The vault prices the window as what it actually is: a digital option. This one is already
+> a quarter percent below its open with six minutes left, so UP is not a coin flip, it is
+> under one percent. Anyone can deposit and be that side. That is the half of a prediction
+> market nobody has ever been able to buy."
+
+Show the vault panel: pool, live risk, utilisation moving.
+
+## 2:10 to 2:40 - settlement
+
+Let the clock hit zero on camera.
+
+- The oracle resolves the window.
+- The solver settles, or click **Settle** in the UI to show it is permissionless.
+- Winner's balance moves. Match row flips to **settled**.
+- Vault live risk drops back in the same transaction, because Cross calls back into the vault
+  the moment it pays out.
+
+> "No keeper, no claim button, no trust. Anyone can settle any match, and on Somnia the
+> reactor can do it in the same block the market finalizes."
+
+## 2:40 to 3:00 - why it matters to the venue
+
+> "Every match mints new open interest instead of eating a young book's depth. Every deposit
+> becomes standing capital ready to fill the next one. CROSS does not need dreamDEX to be
+> liquid yet - it makes it liquid."
+
+End on the mark and the line: **Two buyers. No seller. One window.**
+
+## Things to say out loud, because judges reward honesty
+
+- Testnet, unaudited.
+- Day-one liquidity is the vault's own capital. Say it plainly; do not claim "always fills".
+- The reactivity fast path needs 32 STT held by the subscribing contract, which the public
+  faucets do not give out, so settlement is permissionless first and reactive second.
