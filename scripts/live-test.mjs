@@ -106,8 +106,17 @@ console.log("\nsettlement");
 await tx("settle", CROSS_ADDRESS, CROSS.abi, "settle", [matchId]);
 const after = await pc.readContract({ address: env.COLLATERAL, abi: erc20, functionName: "balanceOf", args: [account.address] });
 const post = await pc.readContract({ address: CROSS_ADDRESS, abi: CROSS.abi, functionName: "getMatch", args: [matchId] });
+
+// Regression check. Committed capital must not still count a stake the payout already returned,
+// or share pricing double counts it. Read BEFORE any explicit release.
+const stakeBack = await pc.readContract({ address: VAULT_ADDRESS, abi: VAULT.abi, functionName: "committed" });
+const idle = await pc.readContract({ address: env.COLLATERAL, abi: erc20, functionName: "balanceOf", args: [VAULT_ADDRESS] });
 const vaultAssets = await pc.readContract({ address: VAULT_ADDRESS, abi: VAULT.abi, functionName: "totalAssets" });
-await tx("vault release", VAULT_ADDRESS, VAULT.abi, "release", [matchId]);
+// The sweep runs on the next entry point, so prove it reconciles rather than assuming a hook fired.
+await tx("vault sweep", VAULT_ADDRESS, VAULT.abi, "sweep", []);
+const committedAfter = await pc.readContract({ address: VAULT_ADDRESS, abi: VAULT.abi, functionName: "committed" });
+const assetsAfter = await pc.readContract({ address: VAULT_ADDRESS, abi: VAULT.abi, functionName: "totalAssets" });
+const idleAfter = await pc.readContract({ address: env.COLLATERAL, abi: erc20, functionName: "balanceOf", args: [VAULT_ADDRESS] });
 
 console.log(`\n  match state        ${post.state} (3 = Settled)`);
 console.log(`  maker balance      ${f(before)} -> ${f(after)}  (delta ${f(after - before)})`);

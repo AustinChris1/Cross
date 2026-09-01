@@ -66,7 +66,7 @@ strictly additive: if it is unfunded or unsubscribed, `settle` still works for a
 | | |
 | --- | --- |
 | Cross | `0x2a562ae9b47745b521e4fe9703a841f136af25f2` |
-| FadeVault | `0xd7e9ff3f3e1d3bf63b644c018243d96a466a4774` |
+| FadeVault | `0x882751553e33a84b7f6caddbaef82421fd4c110f` |
 
 ## What is verified, and how
 
@@ -128,7 +128,7 @@ solver/
   market.mjs           live windows, opening prints, spot, vol
   index.mjs            vault quoter and settlement keeper
 scripts/               compile, deploy, simulate, live-test
-web/                   landing page plus the app: match view, live windows, vault dashboard
+web/                   landing page plus the app, on Tailwind, Framer Motion and GSAP
 docs/SDK-FEEDBACK.md   findings from building against the SDK
 ```
 
@@ -154,16 +154,16 @@ off every time.
 ## Running it
 
 ```sh
-npm install
-npm run build          # solc 0.8.30 -> out/*.json
-npm run simulate       # proves the fill path against live chain state, no gas needed
+pnpm install
+pnpm build             # solc 0.8.30 -> out/*.json
+pnpm simulate          # proves the fill path against live chain state, no gas needed
 
 # needs STT in the deployer wallet
-npm run deploy         # writes CROSS_ADDRESS and VAULT_ADDRESS into .env
+pnpm deploy            # writes CROSS_ADDRESS and VAULT_ADDRESS into .env
 node scripts/live-test.mjs   # full lifecycle on the soonest live window
 
-cd web && cp .env.example .env.local   # paste the two addresses
-npm run dev
+cd web && pnpm install && cp .env.example .env.local   # paste the two addresses
+pnpm dev
 ```
 
 The solver runs dry by default:
@@ -171,6 +171,9 @@ The solver runs dry by default:
 ```sh
 DRY_RUN=false node solver/index.mjs
 ```
+
+Deployment on Somnia is expensive: roughly 4,850 gas per byte of code, so `Cross` alone
+costs about 0.33 STT to deploy. Budget for that before redeploying.
 
 ## Network
 

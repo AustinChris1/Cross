@@ -61,6 +61,9 @@ contract FadeVault {
 
     mapping(bytes32 => uint256) public exposureByMarket;
     mapping(uint256 => bool) public filled;
+    // Matches the vault is currently in. Swept on every entry point so `committed` cannot go stale.
+    uint256[] public liveMatches;
+    uint256 public sweepMax = 12;
 
     uint256 private lock = 1;
 
@@ -120,6 +123,7 @@ contract FadeVault {
 
     function deposit(uint256 amount) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert BadAmount();
+        _sweep();
         uint256 assetsBefore = totalAssets();
         _pull(msg.sender, amount);
         shares = totalShares == 0 ? amount : (amount * totalShares) / assetsBefore;
@@ -131,6 +135,7 @@ contract FadeVault {
 
     function withdraw(uint256 shares) external nonReentrant returns (uint256 amount) {
         if (shares == 0 || shares > sharesOf[msg.sender]) revert BadAmount();
+        _sweep();
         amount = (shares * totalAssets()) / totalShares;
         // Only idle collateral is withdrawable; committed stakes are live in matches.
         if (amount > collateral.balanceOf(address(this))) revert NothingToWithdraw();
@@ -149,6 +154,7 @@ contract FadeVault {
 
     /// @notice Take the unfilled side of a Cross challenge, inside every configured cap.
     function fade(uint256 matchId) external onlyQuoter nonReentrant {
+        _sweep();
         if (filled[matchId]) revert AlreadyFilled();
         ICross.Match memory m = cross.getMatch(matchId);
         if (m.state != 1) revert MatchNotOpen();
@@ -169,6 +175,7 @@ contract FadeVault {
         filled[matchId] = true;
         exposureByMarket[m.marketId] = nextMarket;
         committed += stake;
+        liveMatches.push(matchId);
 
         collateral.approve(address(cross), stake);
         cross.acceptChallenge(matchId);
@@ -203,6 +210,34 @@ contract FadeVault {
         for (uint256 i = 0; i < matchIds.length; i++) _release(matchIds[i]);
     }
 
+    /// @notice Reconcile settled matches into the counters. Permissionless, bounded, idempotent.
+    function sweep() external {
+        _sweep();
+    }
+
+    /**
+     * Walks the live-match list from the back, releasing any that have settled. Called before
+     * every deposit, withdrawal and fill so share pricing never counts a stake twice: once in
+     * `committed` and again in the collateral the payout already returned.
+     */
+    function _sweep() private {
+        uint256 n = liveMatches.length;
+        uint256 steps = n < sweepMax ? n : sweepMax;
+        for (uint256 i = 0; i < steps; i++) {
+            uint256 idx = liveMatches.length - 1 - i;
+            uint256 matchId = liveMatches[idx];
+            uint8 state = cross.getMatch(matchId).state;
+            if (state != 3 && state != 4) continue;
+            _release(matchId);
+            liveMatches[idx] = liveMatches[liveMatches.length - 1];
+            liveMatches.pop();
+        }
+    }
+
+    function liveMatchCount() external view returns (uint256) {
+        return liveMatches.length;
+    }
+
     // ----------------------------------------------------------------- admin
 
     function setCaps(
@@ -217,6 +252,11 @@ contract FadeVault {
         maxUtilizationBps = maxUtilizationBps_;
         maxPriceAccepted = maxPriceAccepted_;
         emit CapsUpdated(maxStakePerMatch_, maxExposurePerMarket_, maxUtilizationBps_, maxPriceAccepted_);
+    }
+
+    function setSweepMax(uint256 n) external onlyOwner {
+        if (n == 0 || n > 64) revert BadAmount();
+        sweepMax = n;
     }
 
     function setQuoter(address who, bool allowed) external onlyOwner {
