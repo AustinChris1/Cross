@@ -1,0 +1,7 @@
+packages:
+  - '.'
+allowBuilds:
+  esbuild: set this to true or false
+# esbuild ships a prebuilt binary via @esbuild/win32-x64, so its postinstall is not needed.
+ignoredBuiltDependencies:
+  - esbuild

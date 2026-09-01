@@ -6,11 +6,18 @@ const UP_B = "M10.7 14.3 L16 8 L26 20";
 const DOWN_A = "M6 12 L16 24 L21.3 17.7";
 const DOWN_B = "M24.1 14.3 L26 12";
 
-export function Mark({ size = 30, mono = false }) {
-  const up = mono ? "currentColor" : "var(--up)";
-  const down = mono ? "currentColor" : "var(--down)";
+export function Mark({ size = 30, mono = false, className = "" }) {
+  const up = mono ? "currentColor" : "var(--color-up)";
+  const down = mono ? "currentColor" : "var(--color-down)";
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" className="mark">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+      className={`shrink-0 ${className}`}
+    >
       <g strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
         <path d={UP_A} stroke={up} />
         <path d={UP_B} stroke={up} />
@@ -23,9 +30,9 @@ export function Mark({ size = 30, mono = false }) {
 
 export function Wordmark({ size = 30, className = "" }) {
   return (
-    <span className={`wordmark ${className}`}>
+    <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <Mark size={size} />
-      <span className="wordmark-text">CROSS</span>
+      <span className="display text-[19px] font-bold tracking-[0.3em] pl-0.5">CROSS</span>
     </span>
   );
 }
