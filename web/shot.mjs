@@ -1,0 +1,14 @@
+import puppeteer from "puppeteer-core";
+const b = await puppeteer.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: "new", args: ["--no-sandbox"] });
+const p = await b.newPage();
+await p.setViewport({ width: 1400, height: 1500, deviceScaleFactor: 2 });
+const errs = [];
+p.on("console", m => { if (m.type() === "error") errs.push(m.text().slice(0,200)); });
+p.on("pageerror", e => errs.push("PAGEERROR " + e.message.slice(0,200)));
+await p.goto("http://localhost:4173", { waitUntil: "networkidle2", timeout: 60000 });
+await new Promise(r => setTimeout(r, 6000));
+await p.screenshot({ path: "../docs/app.png", fullPage: true });
+const txt = await p.evaluate(() => document.body.innerText.slice(0, 900));
+console.log("--- console errors ---"); console.log(errs.slice(0,8).join("\n") || "none");
+console.log("--- rendered text ---"); console.log(txt);
+await b.close();

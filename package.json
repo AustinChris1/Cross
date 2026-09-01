@@ -1,0 +1,21 @@
+{
+  "name": "cross",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/compile.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "simulate": "node scripts/simulate.mjs",
+    "markets": "node scripts/markets.mjs",
+    "solver": "node solver/index.mjs"
+  },
+  "dependencies": {
+    "@somnia-chain/markets-sdk": "^0.29.0",
+    "dotenv": "^17.2.3",
+    "viem": "^2.56.1"
+  },
+  "devDependencies": {
+    "solc": "0.8.30"
+  }
+}

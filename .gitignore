@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+out/
+artifacts/
+*.log
+.DS_Store
+web/.next/
+web/dist/
