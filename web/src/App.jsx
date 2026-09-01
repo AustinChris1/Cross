@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { Wordmark } from "./Logo.jsx";
 import { CFG, publicClient, walletClient, connect, erc20Abi, liveWindows, openingPrices, spotPrices } from "./chain.js";
-import { fairUpProbability, pct, usd, countdown } from "./pricing.js";
+import { fairUpProbability, pct, usd, countdown, racePosition } from "./pricing.js";
 import crossArtifact from "../../out/Cross.json";
 import vaultArtifact from "../../out/FadeVault.json";
 
@@ -176,6 +176,7 @@ function MatchView({ w, account, send, busy, balance }) {
   const risk = payout * clamped;
   const win = payout - risk;
   const moved = w.opening && w.spot ? (w.spot / w.opening - 1) * 100 : null;
+  const racePos = racePosition({ spot: w.spot, opening: w.opening, intervalSec: w.intervalSec });
   const progress = w.intervalSec ? Math.min(1, Math.max(0, 1 - w.secondsLeft / w.intervalSec)) : 0;
 
   const canPost = account && payout > 0 && w.secondsLeft > 360;
@@ -205,15 +206,12 @@ function MatchView({ w, account, send, busy, balance }) {
           <>
             <div
               className="spot-dot"
-              style={{
-                top: `${Math.min(92, Math.max(8, 50 - Math.max(-40, Math.min(40, (w.spot / w.opening - 1) * 6000))))}%`,
-                borderColor: w.spot >= w.opening ? "var(--up)" : "var(--down)",
-              }}
+              style={{ top: `${racePos}%`, borderColor: w.spot >= w.opening ? "var(--up)" : "var(--down)" }}
             />
             <div
               className="spot-label mono"
               style={{
-                top: `${Math.min(92, Math.max(8, 50 - Math.max(-40, Math.min(40, (w.spot / w.opening - 1) * 6000))))}%`,
+                top: `${racePos}%`,
                 color: w.spot >= w.opening ? "var(--up)" : "var(--down)",
               }}
             >

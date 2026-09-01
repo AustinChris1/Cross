@@ -33,3 +33,18 @@ export function countdown(sec) {
   const pad = (n) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
+
+/**
+ * Vertical position of spot in the race panel, as a percentage from the top.
+ * The scale is the window's own expected move (vol * sqrt(T)), so a 15m window and a 1d
+ * window are both legible instead of one of them pegging to the edge.
+ */
+export function racePosition({ spot, opening, intervalSec, vol = 0.3 }) {
+  if (!(spot > 0) || !(opening > 0)) return 50;
+  const T = Math.max(intervalSec, 60) / (365 * 24 * 3600);
+  const expected = Math.max(vol * Math.sqrt(T), 0.0002);
+  const moved = spot / opening - 1;
+  // Two expected moves fill the panel in each direction.
+  const deflection = Math.max(-40, Math.min(40, (moved / (2 * expected)) * 40));
+  return 50 - deflection;
+}
