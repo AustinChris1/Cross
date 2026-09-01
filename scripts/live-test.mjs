@@ -118,12 +118,20 @@ const committedAfter = await pc.readContract({ address: VAULT_ADDRESS, abi: VAUL
 const assetsAfter = await pc.readContract({ address: VAULT_ADDRESS, abi: VAULT.abi, functionName: "totalAssets" });
 const idleAfter = await pc.readContract({ address: env.COLLATERAL, abi: erc20, functionName: "balanceOf", args: [VAULT_ADDRESS] });
 
+const accountingOk = committedAfter === 0n && assetsAfter === idleAfter;
+
 console.log(`\n  match state        ${post.state} (3 = Settled)`);
 console.log(`  maker balance      ${f(before)} -> ${f(after)}  (delta ${f(after - before)})`);
-console.log(`  vault totalAssets  ${f(vaultAssets)}`);
+console.log(`  before sweep       idle ${f(idle)}  committed ${f(stakeBack)}  totalAssets ${f(vaultAssets)}`);
+console.log(`  after sweep        idle ${f(idleAfter)}  committed ${f(committedAfter)}  totalAssets ${f(assetsAfter)}`);
 console.log(
-  post.state === 3
-    ? "\nPASS  full lifecycle on chain: post, fade, mint, resolve, redeem, pay"
-    : "\nFAIL  match did not reach Settled",
+  accountingOk
+    ? "  accounting         totalAssets equals real collateral, nothing double counted"
+    : "  accounting         MISMATCH, committed did not reconcile",
 );
-process.exit(post.state === 3 ? 0 : 1);
+console.log(
+  post.state === 3 && accountingOk
+    ? "\nPASS  full lifecycle on chain: post, fade, mint, resolve, redeem, pay, reconcile"
+    : "\nFAIL  see values above",
+);
+process.exit(post.state === 3 && accountingOk ? 0 : 1);
