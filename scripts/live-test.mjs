@@ -1,4 +1,4 @@
-// End to end proof on Shannon: post a challenge on the soonest 5m window, have the vault
+// End to end proof on Shannon: post a challenge on the soonest live window, have the vault
 // fade it, wait for the oracle to resolve the window, settle, and check the winner was paid.
 // This is the run that closes the last unverified path (redeem after finalize).
 import "dotenv/config";

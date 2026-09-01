@@ -60,9 +60,16 @@ Settlement is permissionless by design. `CrossReactor` additionally subscribes t
 in the same block the market finalizes, with no keeper and no user click. The reactor is
 strictly additive: if it is unfunded or unsubscribed, `settle` still works for anyone.
 
+## Deployed on Shannon
+
+| | |
+| --- | --- |
+| Cross | `0x2a562ae9b47745b521e4fe9703a841f136af25f2` |
+| FadeVault | `0xd7e9ff3f3e1d3bf63b644c018243d96a466a4774` |
+
 ## What is verified, and how
 
-Three gates run against **live Shannon state** with no gas and no deployment, by running the
+Four gates run against **live Shannon state** with no gas and no deployment, by running the
 whole flow inside a single `eth_call` (a constructor that returns its observations):
 
 ```
@@ -81,17 +88,31 @@ vault committed 42.00 of a 1000 pool
 PASS  the vault can be the counterparty with no order book involved
 ```
 
-and `node scripts/dev/gate.mjs`:
-
 ```
-settle before resolution reverted: true, selector matches NotResolved
+node scripts/dev/gate.mjs
 PASS  escrow refuses to pay out an unresolved window
+
+node scripts/dev/settlement-gate.mjs
+PASS  the settlement record decodes identically in Solidity and in viem
 ```
 
-The redeem-after-finalize path needs real transactions, because every finalized market on
-Shannon shows `backing: 0` - the venue's own bots redeem promptly, so there is no borrowable
-winning position to simulate against. `scripts/live-test.mjs` runs that full lifecycle on a
-5-minute window once the deployer holds STT.
+That fourth gate exists because of a bug the first three could not reach.
+`BinarySettlement.getSettlement` returns a **single struct**, not nine flat returns. The
+tuple is dynamic, so a flat interface shifts every field by one word, hands the ABI decoder
+`20000000` where it expects a `bool`, and reverts with empty data. `viem` decoded the same
+record correctly throughout, so every diagnostic read looked healthy and only the on-chain
+`settle` failed, after funds were already escrowed. The gate now decodes a real finalized
+record through the production interface and compares it field by field against viem.
+
+Two consequences worth naming:
+
+- A fill-path test that stops at the resolution check cannot see a settlement-path bug.
+  Gates have to reach the code they claim to cover.
+- `claimLegs` now exists as a safety valve: two hours past expiry either participant can pull
+  their own outcome token out of escrow and redeem it on dreamDEX directly, so a fault inside
+  `settle` can never strand a match. It is trustless - no owner key can touch a position.
+
+The full lifecycle runs on chain with `scripts/live-test.mjs`.
 
 ## Repo layout
 
@@ -138,7 +159,7 @@ npm run simulate       # proves the fill path against live chain state, no gas n
 
 # needs STT in the deployer wallet
 npm run deploy         # writes CROSS_ADDRESS and VAULT_ADDRESS into .env
-node scripts/live-test.mjs   # full lifecycle on a 5m window
+node scripts/live-test.mjs   # full lifecycle on the soonest live window
 
 cd web && cp .env.example .env.local   # paste the two addresses
 npm run dev
