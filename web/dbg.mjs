@@ -1,0 +1,14 @@
+import puppeteer from "puppeteer-core";
+const b = await puppeteer.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: "new", args: ["--no-sandbox"] });
+const p = await b.newPage();
+const errs = [];
+p.on("pageerror", e => errs.push(e.stack?.slice(0,600) ?? e.message));
+p.on("console", m => { if (m.type()==="error") errs.push("CONSOLE " + m.text().slice(0,400)); });
+await p.goto("http://localhost:5173/", { waitUntil: "networkidle2", timeout: 60000 });
+await new Promise(r => setTimeout(r, 4000));
+console.log("=== LANDING ==="); console.log(errs.slice(0,3).join("\n---\n") || "none");
+errs.length = 0;
+await p.goto("http://localhost:5173/#/app", { waitUntil: "networkidle2", timeout: 60000 });
+await new Promise(r => setTimeout(r, 5000));
+console.log("=== APP ==="); console.log(errs.slice(0,3).join("\n---\n") || "none");
+await b.close();

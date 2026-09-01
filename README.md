@@ -8,8 +8,9 @@ the Fade Vault - minted as a complete set and settled as a live race against the
 
 Built for the Somnia x dreamDEX Event Contracts Hackathon, on Shannon testnet.
 
-The mark is an up tick and a down tick sharing one vertex: the moment two opposite buyers
-cross and the pool mints a pair. The shared vertex is the fill.
+The mark is an up chevron and a down chevron locked through each other like two chain links:
+each passes through the other exactly once, and neither can let go until the window settles.
+The diamond left in the negative space is the window itself.
 
 ---
 
@@ -127,7 +128,7 @@ solver/
   market.mjs           live windows, opening prints, spot, vol
   index.mjs            vault quoter and settlement keeper
 scripts/               compile, deploy, simulate, live-test
-web/                   the app: match view, live windows, vault dashboard
+web/                   landing page plus the app: match view, live windows, vault dashboard
 docs/SDK-FEEDBACK.md   findings from building against the SDK
 ```
 

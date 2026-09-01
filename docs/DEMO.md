@@ -91,3 +91,11 @@ End on the mark and the line: **Two buyers. No seller. One window.**
 - Day-one liquidity is the vault's own capital. Say it plainly; do not claim "always fills".
 - The reactivity fast path needs 32 STT held by the subscribing contract, which the public
   faucets do not give out, so settlement is permissionless first and reactive second.
+
+## Recording the landing page
+
+The app has two routes. `/` is the landing page and `#/app` is the product. Open on `/` for
+the first twenty seconds of the video: the hero states the whole thesis in one line, the
+comparison table makes the "who takes the other side" point without narration, and the mint
+diagram shows the mechanic in a single frame. Then hit **Start a match** on camera so the
+cut to the app is a real click rather than an edit.
