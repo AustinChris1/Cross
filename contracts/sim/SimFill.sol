@@ -183,3 +183,69 @@ contract SimSettlementRead {
         }
     }
 }
+
+/**
+ * Refund paths, which are the ones that strand money when they break. An unmatched challenge
+ * must return the maker's stake exactly, and claimLegs must hand both outcome tokens back when
+ * a market is voided so nobody is left holding an unredeemable position.
+ */
+contract SimRefund {
+    struct Result {
+        uint256 stakeBefore;
+        uint256 afterCancel;
+        uint8 stateAfterCancel;
+        bool cancelTwiceReverted;
+        bool strangerCancelReverted;
+    }
+
+    constructor(
+        address module,
+        address collateral,
+        bytes32 venueId,
+        uint32 operatorId,
+        bytes32 marketId,
+        uint128 contracts,
+        uint32 price
+    ) {
+        Cross cross = new Cross(module, collateral, venueId, operatorId);
+        ITestUsdc(collateral).faucet(uint256(contracts) * 4);
+        IERC20(collateral).approve(address(cross), type(uint256).max);
+
+        uint256 before = IERC20(collateral).balanceOf(address(this));
+        uint256 matchId = cross.postChallenge(marketId, 0, contracts, price, address(0), 0);
+        uint256 staked = before - IERC20(collateral).balanceOf(address(this));
+
+        // A stranger must not be able to cancel someone else's open challenge.
+        SimStranger stranger = new SimStranger();
+        bool strangerReverted;
+        try stranger.cancel(address(cross), matchId) {
+            strangerReverted = false;
+        } catch {
+            strangerReverted = true;
+        }
+
+        cross.cancelChallenge(matchId);
+        uint256 back = IERC20(collateral).balanceOf(address(this));
+        Cross.Match memory m = cross.getMatch(matchId);
+
+        // Cancelling twice must not pay twice.
+        bool twiceReverted;
+        try cross.cancelChallenge(matchId) {
+            twiceReverted = false;
+        } catch {
+            twiceReverted = true;
+        }
+
+        Result memory r = Result(staked, back, uint8(m.state), twiceReverted, strangerReverted);
+        bytes memory out = abi.encode(r);
+        assembly {
+            return(add(out, 0x20), mload(out))
+        }
+    }
+}
+
+contract SimStranger {
+    function cancel(address cross, uint256 matchId) external {
+        Cross(cross).cancelChallenge(matchId);
+    }
+}
