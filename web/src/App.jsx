@@ -3,6 +3,8 @@ import { formatUnits, parseUnits, maxUint256 } from "viem";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
+  Copy,
+  Swords,
   ArrowLeft,
   Check,
   CheckCircle2,
@@ -33,7 +35,7 @@ const human = (v) => Number(formatUnits(v ?? 0n, DEC));
 const STATE = ["none", "open", "filled", "settled", "cancelled"];
 const ease = [0.22, 1, 0.36, 1];
 
-export default function App({ go }) {
+export default function App({ go, focusId = null }) {
   const [account, setAccount] = useState(null);
   const [windows, setWindows] = useState([]);
   const [opens, setOpens] = useState({});
@@ -143,6 +145,7 @@ export default function App({ go }) {
   );
 
   const active = priced.find((w) => w.marketId === selected) ?? priced[0];
+  const focused = focusId ? (matches.find((m) => m.id === focusId) ?? null) : null;
   const onConnect = () => connect().then(setAccount).catch((e) => setToast({ kind: "err", text: e.message }));
 
   const send = useCallback(
@@ -155,6 +158,15 @@ export default function App({ go }) {
         await publicClient.waitForTransactionReceipt({ hash });
         await refreshChain();
         if (okMessage) setToast({ kind: "ok", text: okMessage });
+        // Land the maker on their own shareable challenge, which is the whole point of posting.
+        if (functionName === "postChallenge") {
+          const id = await publicClient.readContract({
+            address: CFG.cross,
+            abi: CROSS_ABI,
+            functionName: "matchCount",
+          });
+          window.location.hash = `#/m/${id}`;
+        }
       } catch (e) {
         setToast({ kind: "err", text: explain(e, label) });
       } finally {
@@ -228,6 +240,20 @@ export default function App({ go }) {
 
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)]">
           <div className="space-y-5">
+            {focused && (
+              <ChallengeBanner
+                m={focused}
+                account={account}
+                wallet={wallet}
+                send={send}
+                busy={busy}
+                onConnect={onConnect}
+                now={now}
+                onDismiss={() => {
+                  window.location.hash = "#/app";
+                }}
+              />
+            )}
             <MatchCard w={active} account={account} wallet={wallet} send={send} busy={busy} onConnect={onConnect} />
             <WindowList priced={priced} selected={active?.marketId} onSelect={setSelected} />
             <MatchTable matches={matches} account={account} send={send} busy={busy} />
@@ -436,6 +462,148 @@ function MatchCard({ w, account, wallet, send, busy, onConnect }) {
   );
 }
 
+/** Copies a match link and confirms it inline, so sharing is one tap. */
+function ShareButton({ matchId, className = "", label = "Copy link" }) {
+  const [done, setDone] = useState(false);
+  const url = `${window.location.origin}${window.location.pathname}#/m/${matchId}`;
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+        } catch {
+          window.prompt("Copy this link", url);
+        }
+        setDone(true);
+        setTimeout(() => setDone(false), 2000);
+      }}
+      className={`inline-flex items-center gap-1.5 rounded-lg hairline px-3 py-1.5 text-xs transition hover:border-white/25 ${className}`}
+    >
+      {done ? <Check className="size-3 text-up" /> : <Copy className="size-3" />}
+      {done ? "Copied" : label}
+    </button>
+  );
+}
+
+/**
+ * What someone sees when they open a shared link. The whole point of the product is that
+ * this screen is one tap from a message, so it states the terms and nothing else.
+ */
+function ChallengeBanner({ m, account, wallet, send, busy, onConnect, now, onDismiss }) {
+  const yourSide = m.makerSide === 0 ? "DOWN" : "UP";
+  const theirSide = m.makerSide === 0 ? "UP" : "DOWN";
+  const payout = human(m.contracts);
+  const makerStake = human(m.makerStake);
+  const yourCost = payout - makerStake;
+  const secondsLeft = Number(m.expiry) - now;
+  const isMine = account && m.maker.toLowerCase() === account.toLowerCase();
+  const forSomeoneElse =
+    m.designated !== ZERO && account && m.designated.toLowerCase() !== account.toLowerCase();
+  const open = m.state === 1;
+  const needed = unit(yourCost.toFixed(6));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-b from-gold/10 to-surface p-5"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="grid size-11 place-items-center rounded-xl bg-raised text-gold">
+            <Swords className="size-5" />
+          </div>
+          <div>
+            <div className="display text-lg font-bold">
+              {isMine ? "Your challenge" : "You have been challenged"}
+            </div>
+            <div className="mono text-xs text-ink-2">
+              {m.maker.slice(0, 6)}…{m.maker.slice(-4)} took{" "}
+              <span className={m.makerSide === 0 ? "text-up" : "text-down"}>{theirSide}</span> for {usd(payout)}
+            </div>
+          </div>
+        </div>
+        <button onClick={onDismiss} className="text-xs text-muted transition hover:text-ink">
+          Dismiss
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        <div className="rounded-xl hairline bg-surface-2 px-3 py-2.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted">Your side</div>
+          <div className={`display mt-0.5 text-lg font-bold ${yourSide === "UP" ? "text-up" : "text-down"}`}>
+            {yourSide}
+          </div>
+        </div>
+        <div className="rounded-xl hairline bg-surface-2 px-3 py-2.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted">You pay</div>
+          <div className="mono mt-0.5 text-lg font-medium text-down">{usd(yourCost)}</div>
+        </div>
+        <div className="rounded-xl hairline bg-surface-2 px-3 py-2.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted">You win</div>
+          <div className="mono mt-0.5 text-lg font-medium text-up">+{usd(makerStake)}</div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <Timer className="size-3.5" />
+          {secondsLeft > 0 ? `${countdown(secondsLeft)} until the window settles` : "window closed"}
+        </span>
+        <ShareButton matchId={m.id} />
+      </div>
+
+      <div className="mt-4">
+        {!open ? (
+          <div className="rounded-xl hairline bg-surface-2 px-4 py-3 text-sm text-ink-2">
+            This challenge is {STATE[m.state]}. Nothing to take.
+          </div>
+        ) : isMine ? (
+          <div className="rounded-xl hairline bg-surface-2 px-4 py-3 text-sm text-ink-2">
+            Waiting for someone to take the other side. Send them the link.
+          </div>
+        ) : forSomeoneElse ? (
+          <div className="rounded-xl hairline bg-surface-2 px-4 py-3 text-sm text-ink-2">
+            This one is reserved for {m.designated.slice(0, 6)}…{m.designated.slice(-4)}.
+          </div>
+        ) : (
+          <ActionGate
+            account={account}
+            wallet={wallet}
+            needed={needed}
+            spender={CFG.cross}
+            allowance={wallet.allowCross}
+            send={send}
+            busy={busy}
+            onConnect={onConnect}
+            finalLabel="take"
+            action={
+              <PrimaryButton
+                tone={yourSide === "UP" ? "up" : "down"}
+                icon={Swords}
+                busy={busy === `take ${m.id}`}
+                disabled={!!busy || secondsLeft <= 0}
+                onClick={() =>
+                  send(
+                    CFG.cross,
+                    CROSS_ABI,
+                    "acceptChallenge",
+                    [BigInt(m.id)],
+                    `take ${m.id}`,
+                    "You are in the match. Both legs are escrowed.",
+                  )
+                }
+              >
+                Take {yourSide} for {usd(yourCost)}
+              </PrimaryButton>
+            }
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <label className="block">
@@ -624,6 +792,7 @@ function MatchTable({ matches, account, send, busy }) {
               >
                 {STATE[m.state]}
               </span>
+              {m.state === 1 && <ShareButton matchId={m.id} label="Link" />}
               {m.state === 1 && account && m.maker.toLowerCase() !== account.toLowerCase() && (
                 <button
                   disabled={!!busy}
