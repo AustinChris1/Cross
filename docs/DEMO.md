@@ -85,6 +85,38 @@ Let the clock hit zero on camera.
 
 End on the mark and the line: **Two buyers. No seller. One window.**
 
+## The shot that sells it
+
+Run the solver live in a second terminal before recording:
+
+```sh
+node scripts/dev/post-open.mjs      # posts an open challenge
+DRY_RUN=false node solver/index.mjs # the vault finds and takes it
+```
+
+The solver prints its reasoning, and that is the demo. It reads the window as a digital
+option, not a coin flip:
+
+```
+#3 ETH 24h maker UP@0.700 -> vault DOWN@0.300
+    ETH spot 2385.98 vs open 2418.08 (-1.328%), 41383s left, vol 41% -> fair UP 18.4%
+    fair DOWN 0.816  limit 0.786  edge 51.6pts  TAKE
+  fade #3 for 6.00 -> success
+```
+
+Say out loud what it just did: the maker offered DOWN at 0.30 when the window was already
+1.3% below its opening print, so DOWN was worth 0.82. The vault took the other side because
+the price beat fair value by more than its required edge, and it would have refused if it
+had not. That is the whole argument for the vault in one screen.
+
+Keep it running during the demo so anything a viewer posts gets filled within a tick.
+
+## Sharing a challenge on camera
+
+Post from the app and it routes you straight to `#/m/<id>`. Copy the link, open it in a
+second browser profile, and the other side sees the challenge screen with their side, their
+cost and their payout. That round trip is the growth loop, so show it rather than describe it.
+
 ## Things to say out loud, because judges reward honesty
 
 - Testnet, unaudited.
