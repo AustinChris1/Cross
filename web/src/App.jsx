@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   Copy,
   Swords,
+  History,
+  TrendingUpDown,
   ArrowLeft,
   Check,
   CheckCircle2,
@@ -28,6 +30,9 @@ import vaultArtifact from "../../out/FadeVault.json";
 
 const CROSS_ABI = crossArtifact.abi;
 const VAULT_ABI = vaultArtifact.abi;
+const MARKET_ABI = [
+  { type: "function", name: "payoutNumerators", inputs: [], outputs: [{ type: "uint256[]" }], stateMutability: "view" },
+];
 const DEC = 6;
 const ZERO = "0x0000000000000000000000000000000000000000";
 const unit = (n) => parseUnits(String(n || 0), DEC);
@@ -47,6 +52,7 @@ export default function App({ go, focusId = null }) {
   const [wallet, setWallet] = useState({ balance: 0n, allowCross: 0n, allowVault: 0n });
   const [busy, setBusy] = useState("");
   const [toast, setToast] = useState(null);
+  const [history, setHistory] = useState([]);
 
   const configured = Boolean(CFG.cross && CFG.vault);
 
@@ -115,6 +121,32 @@ export default function App({ go, focusId = null }) {
         setWallet({ balance: bal, allowCross: aC, allowVault: aV });
       }
       setVault({ assets, committed, shares, mine });
+
+      // Vault track record. The winner is not stored on the match, so read the market's
+      // payout vector and compare it to the side the vault took.
+      const vaultRows = rows.filter(
+        (r) => r.state === 3 && r.taker.toLowerCase() === CFG.vault.toLowerCase(),
+      );
+      const settled = await Promise.all(
+        vaultRows.map(async (r) => {
+          try {
+            const numerators = await publicClient.readContract({
+              address: r.market,
+              abi: MARKET_ABI,
+              functionName: "payoutNumerators",
+            });
+            let winner = 0;
+            for (let i = 1; i < numerators.length; i++) if (numerators[i] > numerators[winner]) winner = i;
+            const vaultSide = r.makerSide === 0 ? 1 : 0;
+            const stake = r.contracts - r.makerStake;
+            const won = winner === vaultSide;
+            return { id: r.id, won, pnl: won ? r.contracts - stake : -stake };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setHistory(settled.filter(Boolean));
     } catch (e) {
       setToast({ kind: "err", text: `Chain read: ${e.message.slice(0, 140)}` });
     }
@@ -258,7 +290,15 @@ export default function App({ go, focusId = null }) {
             <WindowList priced={priced} selected={active?.marketId} onSelect={setSelected} />
             <MatchTable matches={matches} account={account} send={send} busy={busy} />
           </div>
-          <VaultCard vault={vault} account={account} wallet={wallet} send={send} busy={busy} onConnect={onConnect} />
+          <VaultCard
+            vault={vault}
+            history={history}
+            account={account}
+            wallet={wallet}
+            send={send}
+            busy={busy}
+            onConnect={onConnect}
+          />
         </div>
       </div>
     </div>
@@ -819,7 +859,71 @@ function MatchTable({ matches, account, send, busy }) {
   );
 }
 
-function VaultCard({ vault, account, wallet, send, busy, onConnect }) {
+/**
+ * What a depositor actually needs before trusting the pool: what a share is worth now
+ * against the 1.00 it started at, and how the settled matches went. Losses shown as losses.
+ */
+function TrackRecord({ vault, history }) {
+  if (!vault || vault.shares === 0n) return null;
+  const assets = human(vault.assets);
+  const shares = human(vault.shares);
+  const sharePrice = shares > 0 ? assets / shares : 1;
+  const pnlPct = (sharePrice - 1) * 100;
+  const wins = history.filter((h) => h.won).length;
+  const net = history.reduce((a, h) => a + human(h.pnl), 0);
+
+  return (
+    <div className="mt-4 rounded-xl hairline bg-surface-2 p-3.5">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-muted">
+          <History className="size-3" />
+          Track record
+        </span>
+        <span className="mono text-[11px] text-muted">
+          {history.length === 0 ? "no settled matches yet" : `${wins}/${history.length} won`}
+        </span>
+      </div>
+
+      <div className="mt-2.5 flex items-baseline gap-3">
+        <span className={`mono text-xl font-medium ${pnlPct >= 0 ? "text-up" : "text-down"}`}>
+          {sharePrice.toFixed(4)}
+        </span>
+        <span className="text-[11px] text-muted">per share, from 1.0000</span>
+        <span className={`mono ml-auto text-sm ${pnlPct >= 0 ? "text-up" : "text-down"}`}>
+          {pnlPct >= 0 ? "+" : ""}
+          {pnlPct.toFixed(2)}%
+        </span>
+      </div>
+
+      {history.length > 0 && (
+        <>
+          <div className="mt-3 flex gap-1">
+            {history
+              .slice()
+              .reverse()
+              .map((h) => (
+                <span
+                  key={h.id}
+                  title={`match #${h.id}: ${h.won ? "won" : "lost"} ${usd(Math.abs(human(h.pnl)))}`}
+                  className={`h-6 flex-1 rounded ${h.won ? "bg-up/70" : "bg-down/70"}`}
+                />
+              ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
+            <span>oldest</span>
+            <span className={`mono ${net >= 0 ? "text-up" : "text-down"}`}>
+              {net >= 0 ? "+" : ""}
+              {usd(net)} net
+            </span>
+            <span>latest</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function VaultCard({ vault, history = [], account, wallet, send, busy, onConnect }) {
   const [amount, setAmount] = useState(100);
   const assets = human(vault?.assets);
   const committed = human(vault?.committed);
@@ -848,6 +952,8 @@ function VaultCard({ vault, account, wallet, send, busy, onConnect }) {
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-raised">
         <motion.div animate={{ width: `${util * 100}%` }} transition={{ duration: 0.6, ease }} className="h-full bg-violet" />
       </div>
+
+      <TrackRecord vault={vault} history={history} />
 
       {account && vault && vault.mine > 0n && (
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-up/30 bg-up/8 px-3.5 py-2.5 text-xs text-ink-2">
