@@ -25,11 +25,10 @@ import {
 import { Wordmark } from "./Logo.jsx";
 import { CFG, publicClient, walletClient, connect, erc20Abi, liveWindows, openingPrices, spotPrices, syncChainTime, chainNow, chainDrift } from "./chain.js";
 import { fairUpProbability, pct, usd, countdown, racePosition } from "./pricing.js";
-import crossArtifact from "../../out/Cross.json";
-import vaultArtifact from "../../out/FadeVault.json";
+import abis from "./abis.json";
 
-const CROSS_ABI = crossArtifact.abi;
-const VAULT_ABI = vaultArtifact.abi;
+const CROSS_ABI = abis.Cross;
+const VAULT_ABI = abis.FadeVault;
 const MARKET_ABI = [
   { type: "function", name: "payoutNumerators", inputs: [], outputs: [{ type: "uint256[]" }], stateMutability: "view" },
 ];

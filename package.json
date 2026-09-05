@@ -11,7 +11,8 @@
     "gate:refund": "node scripts/dev/refund-gate.mjs",
     "gates": "node scripts/simulate.mjs && node scripts/dev/gate.mjs && node scripts/dev/settlement-gate.mjs && node scripts/dev/refund-gate.mjs",
     "deploy:vault": "node scripts/deploy-vault.mjs",
-    "live-test": "node scripts/live-test.mjs"
+    "live-test": "node scripts/live-test.mjs",
+    "gen:abis": "node scripts/gen-abis.mjs"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "^0.29.0",

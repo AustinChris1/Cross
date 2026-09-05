@@ -22,10 +22,10 @@ import { Wordmark, Mark } from "./Logo.jsx";
 import { CFG, publicClient, liveWindows, openingPrices, spotPrices, syncChainTime, chainNow } from "./chain.js";
 import { usd, fairUpProbability, countdown } from "./pricing.js";
 import { formatUnits } from "viem";
-import vaultArtifact from "../../out/FadeVault.json";
+import abis from "./abis.json";
 
 gsap.registerPlugin(ScrollTrigger);
-const VAULT_ABI = vaultArtifact.abi;
+const VAULT_ABI = abis.FadeVault;
 
 const ease = [0.22, 1, 0.36, 1];
 const rise = {
