@@ -145,3 +145,30 @@ guidance.
   It is also how we now regression-test the struct decode in finding 2: a three-line harness
   reads a real finalized record through the production interface and compares it against
   viem, which would have caught that bug before it reached a deployment.
+
+## `listLiveBinaryMarkets` decides what is "live" using the machine clock
+
+`LiveBinaryMarketsFilter.nowSec` defaults to `Date.now()`. Every liveness cut in the SDK
+(`listLiveBinaryMarkets`, `listPastBinaryMarkets`) is therefore made against the caller's
+clock rather than `block.timestamp`.
+
+Our dev machine was 8050 seconds behind the chain. The result was not an error, it was worse:
+the call returned forty markets that had expired more than two hours earlier, ordered
+closing-soonest, so every genuinely tradable market was pushed off the page. A bot filtering
+that page for `status === "Trading"` finds nothing and concludes the venue is down. We spent
+real time believing exactly that.
+
+The docs already warn about this for `voidExpired`, where the SDK compares against the chain's
+clock precisely because "a machine whose clock runs ahead would sail past this check". The same
+reasoning applies to liveness, but there the default goes the other way.
+
+Suggestions, in order of preference:
+
+1. Default `nowSec` to the chain head the client already tracks, not `Date.now()`.
+2. Failing that, return the node's `now` alongside the rows so a caller can detect drift.
+3. At minimum, say in the `nowSec` doc comment that leaving it unset trusts the local clock,
+   and that a drifting clock silently yields dead markets rather than an error.
+
+A related sharp edge: a venue that lists many high frequency markets alongside a few slow ones
+makes `listPastBinaryMarkets({ limit: 20 })` useless for finding a slow market, because the
+page fills with 1m rows. Server-side filtering on cadence or resolution mode would help.

@@ -6,6 +6,7 @@ import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { syncChainTime, chainNow } from "../lib/chain-time.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const art = (n) => JSON.parse(readFileSync(join(root, "out", `${n}.json`), "utf8"));
@@ -28,8 +29,9 @@ const RESULT_VAULT = parseAbiParameters(
 );
 
 async function pickMarket() {
-  const now = Math.floor(Date.now() / 1000);
-  const live = await ex.client.listLiveBinaryMarkets({ limit: 40 });
+  await syncChainTime(pc);
+  const now = chainNow();
+  const live = await ex.client.listLiveBinaryMarkets({ limit: 40, nowSec: chainNow() });
   const usable = live
     .filter((m) => m.mode === "reference" && m.venueId?.toLowerCase() === VENUE.toLowerCase())
     .filter((m) => m.status === "Trading" && Number(m.expiry) - now > 360)
@@ -46,7 +48,7 @@ async function simulate(name, args, resultAbi) {
 }
 
 const m = await pickMarket();
-const secs = Number(m.expiry) - Math.floor(Date.now() / 1000);
+const secs = Number(m.expiry) - chainNow();
 const dec = m.quoteDecimals ?? 6;
 const one = 10 ** dec;
 const contracts = BigInt(100 * one); // 100 collateral units of payout

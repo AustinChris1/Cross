@@ -10,7 +10,10 @@ importers:
     dependencies:
       '@somnia-chain/markets-sdk':
         specifier: ^0.29.0
-        version: 0.29.0(graphql@17.0.2)(viem@2.56.1)
+        version: 0.29.0(@somnia-chain/reactivity@0.2.1(viem@2.56.1))(graphql@17.0.2)(viem@2.56.1)
+      '@somnia-chain/reactivity':
+        specifier: ^0.2.1
+        version: 0.2.1(viem@2.56.1)
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
@@ -64,6 +67,11 @@ packages:
         optional: true
       react:
         optional: true
+
+  '@somnia-chain/reactivity@0.2.1':
+    resolution: {integrity: sha512-sLv+vN6JGbJ0O3LmsU7R+nGAMNpUJerJQ1v/xfC9nj2OjP3ze5nrmABhdp4TTknTdOAEU0oED0a4Z0Q8cAXP/g==}
+    peerDependencies:
+      viem: ^2.48.2
 
   abitype@1.2.3:
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
@@ -189,12 +197,18 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
-  '@somnia-chain/markets-sdk@0.29.0(graphql@17.0.2)(viem@2.56.1)':
+  '@somnia-chain/markets-sdk@0.29.0(@somnia-chain/reactivity@0.2.1(viem@2.56.1))(graphql@17.0.2)(viem@2.56.1)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@17.0.2)
       viem: 2.56.1
+    optionalDependencies:
+      '@somnia-chain/reactivity': 0.2.1(viem@2.56.1)
     transitivePeerDependencies:
       - graphql
+
+  '@somnia-chain/reactivity@0.2.1(viem@2.56.1)':
+    dependencies:
+      viem: 2.56.1
 
   abitype@1.2.3: {}
 

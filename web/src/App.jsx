@@ -23,7 +23,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Wordmark } from "./Logo.jsx";
-import { CFG, publicClient, walletClient, connect, erc20Abi, liveWindows, openingPrices, spotPrices } from "./chain.js";
+import { CFG, publicClient, walletClient, connect, erc20Abi, liveWindows, openingPrices, spotPrices, syncChainTime, chainNow, chainDrift } from "./chain.js";
 import { fairUpProbability, pct, usd, countdown, racePosition } from "./pricing.js";
 import crossArtifact from "../../out/Cross.json";
 import vaultArtifact from "../../out/FadeVault.json";
@@ -46,19 +46,27 @@ export default function App({ go, focusId = null }) {
   const [opens, setOpens] = useState({});
   const [spots, setSpots] = useState({});
   const [selected, setSelected] = useState(null);
-  const [now, setNow] = useState(Math.floor(Date.now() / 1000));
+  const [now, setNow] = useState(chainNow());
   const [matches, setMatches] = useState([]);
   const [vault, setVault] = useState(null);
   const [wallet, setWallet] = useState({ balance: 0n, allowCross: 0n, allowVault: 0n });
   const [busy, setBusy] = useState("");
   const [toast, setToast] = useState(null);
   const [history, setHistory] = useState([]);
+  const [marketsLoaded, setMarketsLoaded] = useState(false);
 
   const configured = Boolean(CFG.cross && CFG.vault);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
-    return () => clearInterval(t);
+    syncChainTime()
+      .then(() => setNow(chainNow()))
+      .catch(() => {});
+    const sync = setInterval(() => syncChainTime().catch(() => {}), 60000);
+    const t = setInterval(() => setNow(chainNow()), 1000);
+    return () => {
+      clearInterval(t);
+      clearInterval(sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -78,7 +86,9 @@ export default function App({ go, focusId = null }) {
       ]);
       setOpens(o);
       setSpots(s);
+      setMarketsLoaded(true);
     } catch (e) {
+      setMarketsLoaded(true);
       setToast({ kind: "err", text: `Market data: ${e.message}` });
     }
   }, []);
@@ -286,7 +296,15 @@ export default function App({ go, focusId = null }) {
                 }}
               />
             )}
-            <MatchCard w={active} account={account} wallet={wallet} send={send} busy={busy} onConnect={onConnect} />
+            <MatchCard
+              w={active}
+              loaded={marketsLoaded}
+              account={account}
+              wallet={wallet}
+              send={send}
+              busy={busy}
+              onConnect={onConnect}
+            />
             <WindowList priced={priced} selected={active?.marketId} onSelect={setSelected} />
             <MatchTable matches={matches} account={account} send={send} busy={busy} />
           </div>
@@ -331,7 +349,7 @@ function CardTitle({ icon: Icon, children, right }) {
   );
 }
 
-function MatchCard({ w, account, wallet, send, busy, onConnect }) {
+function MatchCard({ w, loaded, account, wallet, send, busy, onConnect }) {
   const [side, setSide] = useState("UP");
   const [payout, setPayout] = useState(20);
   const [opponent, setOpponent] = useState("");
@@ -339,9 +357,22 @@ function MatchCard({ w, account, wallet, send, busy, onConnect }) {
   if (!w)
     return (
       <Card>
-        <div className="flex items-center gap-2 text-sm text-muted">
-          <Loader2 className="size-4 animate-spin" /> Loading live windows
-        </div>
+        {loaded ? (
+          <div className="py-6 text-center">
+            <div className="mx-auto grid size-11 place-items-center rounded-xl bg-raised text-muted">
+              <Timer className="size-5" />
+            </div>
+            <div className="display mt-4 text-lg">The venue has no open windows</div>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-2">
+              dreamDEX is not serving a tradable window right now. Nothing to post against until it
+              opens the next one. Everything else here still works.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <Loader2 className="size-4 animate-spin" /> Loading live windows
+          </div>
+        )}
       </Card>
     );
 
@@ -753,7 +784,9 @@ function WindowList({ priced, selected, onSelect }) {
   return (
     <Card>
       <CardTitle icon={Timer}>Live windows</CardTitle>
-      {priced.length === 0 && <div className="text-sm text-muted">No open windows right now.</div>}
+      {priced.length === 0 && (
+        <div className="text-sm text-muted">No open windows right now. The venue rolls new ones continuously.</div>
+      )}
       <div className="space-y-2">
         {priced.map((w) => {
           const on = w.marketId === selected;

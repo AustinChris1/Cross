@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Wordmark, Mark } from "./Logo.jsx";
-import { CFG, publicClient, liveWindows, openingPrices, spotPrices } from "./chain.js";
+import { CFG, publicClient, liveWindows, openingPrices, spotPrices, syncChainTime, chainNow } from "./chain.js";
 import { usd, fairUpProbability, countdown } from "./pricing.js";
 import { formatUnits } from "viem";
 import vaultArtifact from "../../out/FadeVault.json";
@@ -86,7 +86,8 @@ export default function Landing({ go }) {
           openingPrices(w.map((m) => m.marketId)),
           spotPrices([...new Set(w.map((m) => m.asset))]),
         ]);
-        const now = Math.floor(Date.now() / 1000);
+        await syncChainTime().catch(() => {});
+        const now = chainNow();
         const rows = w.slice(0, 8).map((m) => {
           const opening = o[m.marketId.toLowerCase()] ?? null;
           const spot = s[m.asset] ?? null;

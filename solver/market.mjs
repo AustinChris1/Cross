@@ -2,6 +2,7 @@
 import { SomniaMarkets, SOMNIA_TESTNET_ADDRESSES } from "@somnia-chain/markets-sdk";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { fairUpProbability, realizedVol } from "./pricing.mjs";
+import { chainNow } from "../lib/chain-time.mjs";
 
 // Markets this close to expiry can lock mid-flight, per the venue's own gotchas.
 export const MIN_HEADROOM_SEC = 360;
@@ -21,9 +22,15 @@ export function createExchange(env) {
   });
 }
 
-/** Reference-mode up/down windows on our venue with enough headroom to fill safely. */
-export async function fillableWindows(ex, venueId, now = Math.floor(Date.now() / 1000)) {
-  const live = await ex.client.listLiveBinaryMarkets({ limit: 60 });
+/**
+ * Reference-mode up/down windows on our venue with enough headroom to fill safely.
+ *
+ * `nowSec` is not optional in practice: the SDK defaults its liveness cut to `Date.now()`, so a
+ * machine clock behind the chain makes it hand back markets that expired hours ago, ordered
+ * closing-soonest, which then crowds every genuinely live market out of the page.
+ */
+export async function fillableWindows(ex, venueId, now = chainNow()) {
+  const live = await ex.client.listLiveBinaryMarkets({ limit: 60, nowSec: now });
   return live
     .filter((m) => m.mode === "reference")
     .filter((m) => !venueId || m.venueId?.toLowerCase() === venueId.toLowerCase())
@@ -81,7 +88,7 @@ export async function spotPrices(ex, assets, maxAgeSec = 120) {
 }
 
 /** Everything the vault needs to price one window right now. */
-export async function priceWindows(ex, markets, now = Math.floor(Date.now() / 1000)) {
+export async function priceWindows(ex, markets, now = chainNow()) {
   const assets = [...new Set(markets.map((m) => m.asset))];
   const [opens, vols, spots] = await Promise.all([
     openingPrices(ex, markets),

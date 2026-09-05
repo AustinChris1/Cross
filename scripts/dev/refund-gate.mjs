@@ -5,6 +5,7 @@ import { createPublicClient, http, encodeDeployData, decodeAbiParameters, format
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
 import { SomniaMarkets, SOMNIA_TESTNET_ADDRESSES } from "@somnia-chain/markets-sdk";
+import { syncChainTime, chainNow } from "../../lib/chain-time.mjs";
 
 const art = JSON.parse(readFileSync(new URL("../../out/SimRefund.json", import.meta.url), "utf8"));
 const env = process.env;
@@ -29,8 +30,9 @@ const ex = new SomniaMarkets({
   wsRpcUrl: env.WS_RPC_URL,
   addresses: SOMNIA_TESTNET_ADDRESSES,
 });
-const now = Math.floor(Date.now() / 1000);
-const w = (await ex.client.listLiveBinaryMarkets({ limit: 40 }))
+await syncChainTime(pc);
+const now = chainNow();
+const w = (await ex.client.listLiveBinaryMarkets({ limit: 40, nowSec: now }))
   .filter((x) => x.mode === "reference" && x.status === "Trading" && Number(x.expiry) - now > 360)
   .sort((a, b) => Number(a.expiry) - Number(b.expiry))[0];
 if (!w) throw new Error("no live window with enough time left");

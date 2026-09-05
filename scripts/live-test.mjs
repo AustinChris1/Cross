@@ -7,6 +7,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
 import { createExchange, fillableWindows, priceWindows } from "../solver/market.mjs";
+import { syncChainTime, chainNow } from "../lib/chain-time.mjs";
 
 const art = (n) => JSON.parse(readFileSync(new URL(`../out/${n}.json`, import.meta.url), "utf8"));
 const CROSS = art("Cross");
@@ -46,7 +47,8 @@ async function tx(label, address, abi, functionName, args) {
 }
 
 // 1. pick the soonest window that still has headroom
-const now = Math.floor(Date.now() / 1000);
+await syncChainTime(pc);
+const now = chainNow();
 // A 5m window lives 300s, so it can never clear the solver's headroom rule. Take whichever
 // window expires soonest while still leaving room to post, fill and settle.
 const windows = await fillableWindows(ex, env.VENUE_ID, now);
@@ -91,7 +93,7 @@ const deadline = Number(short.expiry) + 240;
 console.log(`\nwaiting for resolution (expiry ${short.expiry})`);
 let resolved = false;
 let voided = false;
-while (Math.floor(Date.now() / 1000) < deadline) {
+while (chainNow() < deadline) {
   resolved = await pc.readContract({ address: m.market, abi: marketAbi, functionName: "isResolved" }).catch(() => false);
   voided = await pc.readContract({ address: m.market, abi: marketAbi, functionName: "isVoided" }).catch(() => false);
   if (resolved || voided) break;

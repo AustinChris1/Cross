@@ -27,6 +27,25 @@ export function walletClient() {
   return createWalletClient({ chain: SHANNON, transport: custom(window.ethereum) });
 }
 
+// The chain's clock. Window guards and option pricing are both measured against
+// block.timestamp, so a browser clock that drifts would show wrong countdowns and misprice
+// every window. Synced once on load, then refreshed.
+let clockOffset = 0;
+
+export async function syncChainTime() {
+  const block = await publicClient.getBlock();
+  clockOffset = Number(block.timestamp) - Math.floor(Date.now() / 1000);
+  return clockOffset;
+}
+
+export function chainNow() {
+  return Math.floor(Date.now() / 1000) + clockOffset;
+}
+
+export function chainDrift() {
+  return clockOffset;
+}
+
 export const erc20Abi = parseAbi([
   "function faucet(uint256 amount)",
   "function approve(address spender, uint256 amount) returns (bool)",
@@ -103,7 +122,7 @@ const MARKETS_QUERY = `
 `;
 
 export async function liveWindows() {
-  const now = Math.floor(Date.now() / 1000);
+  const now = chainNow();
   const data = await gql(MARKETS_QUERY, { venue: CFG.venue, now: now + 360 });
   return (data.Market ?? []).map((m) => ({
     marketId: m.id,

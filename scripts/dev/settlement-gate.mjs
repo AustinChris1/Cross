@@ -3,12 +3,26 @@ import { createPublicClient, http, decodeAbiParameters, encodeDeployData, parseA
 import { SomniaMarkets, SOMNIA_TESTNET_ADDRESSES, marketKey } from "@somnia-chain/markets-sdk";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
+import { syncChainTime, chainNow } from "../../lib/chain-time.mjs";
 const art = n => JSON.parse(readFileSync(`out/${n}.json`,"utf8"));
 const pc = createPublicClient({ chain: somniaShannon, transport: http(process.env.RPC_URL) });
 const ex = new SomniaMarkets({ indexerUrl: process.env.INDEXER_URL, chain: somniaShannon, addresses: SOMNIA_TESTNET_ADDRESSES });
-const past = (await ex.client.listPastBinaryMarkets({ limit: 20 })).filter(m => m.mode === "reference");
+await syncChainTime(pc);
+// The venue lists far more high frequency fixed-strike markets than reference ones, so a page
+// of "past markets" contains none of the kind this gate needs. Ask the indexer for the exact
+// shape instead: reference mode is strike 0, and only a finalized market has a payout vector.
+const PAST_REFERENCE = `query($venue:String!,$now:numeric!){
+  Market(where:{marketType:{_eq:"BINARY"},venueId:{_eq:$venue},strike:{_eq:"0"},expiry:{_lt:$now}},
+         order_by:{expiry:desc}, limit:20){ id marketAddress poolAddress asset intervalSec expiry yesTokenId noTokenId }
+}`;
+const res = await fetch(process.env.INDEXER_URL, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ query: PAST_REFERENCE, variables: { venue: process.env.VENUE_ID, now: chainNow() } }),
+});
+const past = (await res.json()).data?.Market ?? [];
 if (!past.length) { console.log("no finalized reference market to read"); process.exit(1); }
-const m = past[0];
+const m = { ...past[0], marketId: past[0].id };
 const key = marketKey(BigInt(m.yesTokenId));
 // Ground truth via viem, which uses the SDK's own tuple ABI.
 const setAbi = parseAbi(["function getSettlement(uint256 marketKey) view returns ((address collateralToken, uint128 backing, bool finalized, bool voided, uint256 settlementFeeBpsTimes1k, address feeRecipient, address pool, uint64 nonce, uint256[] payoutNumerators))"]);

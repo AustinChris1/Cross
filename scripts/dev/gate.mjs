@@ -3,11 +3,13 @@ import { createPublicClient, http, decodeAbiParameters, encodeDeployData, parseA
 import { SomniaMarkets, SOMNIA_TESTNET_ADDRESSES } from "@somnia-chain/markets-sdk";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
+import { syncChainTime, chainNow } from "../../lib/chain-time.mjs";
 const art = (n) => JSON.parse(readFileSync(`out/${n}.json`, "utf8"));
 const pc = createPublicClient({ chain: somniaShannon, transport: http(process.env.RPC_URL) });
 const ex = new SomniaMarkets({ indexerUrl: process.env.INDEXER_URL, chain: somniaShannon, addresses: SOMNIA_TESTNET_ADDRESSES });
-const now = Math.floor(Date.now()/1000);
-const m = (await ex.client.listLiveBinaryMarkets({ limit: 40 })).filter(x=>x.mode==="reference" && x.status==="Trading" && Number(x.expiry)-now>360).sort((a,b)=>Number(a.expiry)-Number(b.expiry))[0];
+await syncChainTime(pc);
+const now = chainNow();
+const m = (await ex.client.listLiveBinaryMarkets({ limit: 40, nowSec: chainNow() })).filter(x=>x.mode==="reference" && x.status==="Trading" && Number(x.expiry)-now>360).sort((a,b)=>Number(a.expiry)-Number(b.expiry))[0];
 const { abi, bytecode } = art("SimSettleGate");
 const data = encodeDeployData({ abi, bytecode, args: [process.env.BINARY_MODULE, process.env.COLLATERAL, process.env.VENUE_ID, 0, m.marketId, 100000000n, 580000] });
 const res = await pc.call({ account: process.env.DEPLOYER_ADDRESS, data });

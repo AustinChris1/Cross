@@ -2,12 +2,13 @@
 // It never moves depositor funds anywhere except into a Cross match: the vault contract
 // enforces every risk cap on chain, so a compromised solver can lose an edge, not the pool.
 import "dotenv/config";
-import { createPublicClient, createWalletClient, http, formatUnits } from "viem";
+import { createPublicClient, createWalletClient, http, formatUnits, toEventSelector } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { readFileSync } from "node:fs";
 import { createExchange, fillableWindows, priceWindows } from "./market.mjs";
 import { quote, describe } from "./pricing.mjs";
+import { syncChainTime, chainNow, keepChainTimeSynced, chainDrift } from "../lib/chain-time.mjs";
 
 const art = (n) => JSON.parse(readFileSync(new URL(`../out/${n}.json`, import.meta.url), "utf8"));
 const CROSS = art("Cross");
@@ -20,6 +21,7 @@ const EDGE = Number(env.SOLVER_EDGE ?? 0.03);
 const INTERVAL_MS = Number(env.SOLVER_INTERVAL_MS ?? 6000);
 const SCAN = Number(env.SOLVER_SCAN ?? 60);
 const DRY_RUN = env.DRY_RUN !== "false";
+const REACTIVE = env.REACTIVE !== "false";
 
 if (!CROSS_ADDRESS || !VAULT_ADDRESS) {
   console.error("set CROSS_ADDRESS and VAULT_ADDRESS in .env (run npm run deploy first)");
@@ -64,7 +66,7 @@ async function send(address, abi, functionName, args, label) {
 }
 
 async function tick() {
-  const now = Math.floor(Date.now() / 1000);
+  const now = chainNow();
   const windows = await fillableWindows(ex, env.VENUE_ID, now);
   const priced = await priceWindows(ex, windows, now);
   const byId = new Map(priced.map((p) => [p.market.marketId.toLowerCase(), p]));
@@ -114,12 +116,88 @@ async function tick() {
   }
 }
 
+/**
+ * Somnia reactivity over the websocket. The node pushes each matched log the block it lands
+ * in, so a posted challenge is answered and a resolved window is settled without waiting for
+ * the next poll. This is the socket flavour of reactivity, so it needs no on-chain handler
+ * and none of the 32 STT a Solidity subscription would demand.
+ *
+ * The polling loop stays as a heartbeat: a dropped socket must never mean an unsettled match.
+ */
+async function startReactivity() {
+  if (REACTIVE === false) return null;
+  try {
+    const { createReactivity, unwrap } = await import("@somnia-chain/markets-sdk/reactivity");
+    const reactivity = createReactivity(ex.client);
+    let pending = false;
+    const kick = (why) => {
+      if (pending) return;
+      pending = true;
+      setTimeout(() => {
+        pending = false;
+        console.log(` reactivity: ${why}`);
+        tick().catch((e) => console.error("reactive tick failed:", e.shortMessage ?? e.message));
+      }, 400);
+    };
+
+    const posted = toEventSelector("ChallengePosted(uint256,bytes32,address,uint8,uint128,uint32,address,uint64)");
+    const resolved = toEventSelector("Resolved(uint32,uint256[])");
+    const voided = toEventSelector("Voided()");
+
+    const watch = unwrap(
+      await reactivity.watch({
+        topicOverrides: [posted],
+        ethCalls: [],
+        onData: () => kick("a challenge was posted"),
+        onError: (e) => console.log(" watch error:", e?.message ?? e),
+      }),
+    );
+    const settleWatch = unwrap(
+      await reactivity.watch({
+        topicOverrides: [resolved],
+        ethCalls: [],
+        onData: () => kick("a window resolved"),
+        onError: (e) => console.log(" watch error:", e?.message ?? e),
+      }),
+    );
+    const voidWatch = unwrap(
+      await reactivity.watch({
+        topicOverrides: [voided],
+        ethCalls: [],
+        onData: () => kick("a window voided"),
+        onError: (e) => console.log(" watch error:", e?.message ?? e),
+      }),
+    );
+    return async () => {
+      await watch.unsubscribe();
+      await settleWatch.unsubscribe();
+      await voidWatch.unsubscribe();
+    };
+  } catch (e) {
+    console.log(` reactivity unavailable, polling only: ${(e.shortMessage ?? e.message).slice(0, 120)}`);
+    return null;
+  }
+}
+
+await syncChainTime(pc);
+keepChainTimeSynced(pc);
+const stopReactivity = await startReactivity();
+
 console.log(`CROSS solver
   cross    ${CROSS_ADDRESS}
   vault    ${VAULT_ADDRESS}
   quoter   ${account.address}
   edge     ${EDGE}
+  clock    chain time, local drift ${chainDrift().offset}s
+  reactive ${stopReactivity ? "somnia_watch (same block)" : "off, polling only"}
   mode     ${DRY_RUN ? "DRY RUN (set DRY_RUN=false to send)" : "LIVE"}`);
 
 await tick();
 setInterval(() => tick().catch((e) => console.error("tick failed:", e.shortMessage ?? e.message)), INTERVAL_MS);
+
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, async () => {
+    if (stopReactivity) await stopReactivity().catch(() => {});
+    process.exit(0);
+  });
+}

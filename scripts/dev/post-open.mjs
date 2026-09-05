@@ -5,6 +5,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { SomniaMarkets, SOMNIA_TESTNET_ADDRESSES } from "@somnia-chain/markets-sdk";
 import { readFileSync } from "node:fs";
+import { syncChainTime, chainNow } from "../../lib/chain-time.mjs";
 
 const CROSS = JSON.parse(readFileSync(new URL("../../out/Cross.json", import.meta.url), "utf8"));
 const env = process.env;
@@ -14,7 +15,8 @@ const wc = createWalletClient({ account, chain: somniaShannon, transport: http(e
 const erc20 = parseAbi(["function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)", "function faucet(uint256)"]);
 
 const ex = new SomniaMarkets({ indexerUrl: env.INDEXER_URL, chain: somniaShannon, wsRpcUrl: env.WS_RPC_URL, addresses: SOMNIA_TESTNET_ADDRESSES });
-const now = Math.floor(Date.now() / 1000);
+await syncChainTime(pc);
+const now = chainNow();
 const w = (await ex.client.listLiveBinaryMarkets({ limit: 40 }))
   .filter((x) => x.mode === "reference" && x.status === "Trading" && Number(x.expiry) - now > 420)
   .sort((a, b) => Number(a.expiry) - Number(b.expiry))[0];
