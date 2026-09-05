@@ -12,6 +12,14 @@ Import the repository, then set:
 | Framework preset | Vite |
 | Build command | `vite build` |
 | Output directory | `dist` |
+| Install command | `npm install` (set in `web/vercel.json`) |
+
+The install command is pinned to npm on purpose. pnpm 10 and later refuse to finish an install
+when a dependency's build script is unapproved, and esbuild trips that, which fails the deploy
+before the build ever runs. esbuild only needs its postinstall on platforms without a prebuilt
+binary, so npm installing it is not a compromise. Local development still uses pnpm; both
+lockfiles are committed and `web/package-lock.json` exists solely to make the hosted build
+reproducible.
 
 Add two environment variables, both available at build time:
 
