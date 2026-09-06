@@ -26,7 +26,11 @@ const input = {
   settings: {
     optimizer: { enabled: true, runs: 200 },
     viaIR: true,
-    outputSelection: { "*": { "*": ["abi", "evm.bytecode.object", "evm.deployedBytecode.object"] } },
+    outputSelection: {
+      "*": {
+        "*": ["abi", "evm.bytecode.object", "evm.deployedBytecode.object", "evm.deployedBytecode.immutableReferences"],
+      },
+    },
   },
 };
 
@@ -59,7 +63,20 @@ for (const [file, contracts] of Object.entries(output.contracts ?? {})) {
     if (!c.evm?.bytecode?.object) continue;
     writeFileSync(
       join(outDir, `${name}.json`),
-      JSON.stringify({ name, file, abi: c.abi, bytecode: `0x${c.evm.bytecode.object}` }, null, 2),
+      JSON.stringify(
+        {
+          name,
+          file,
+          abi: c.abi,
+          bytecode: `0x${c.evm.bytecode.object}`,
+          // Kept so anyone can diff a rebuild against the code actually on chain. Immutables
+          // are zero placeholders here and patched at deploy, so a comparison must mask them.
+          deployedBytecode: `0x${c.evm.deployedBytecode.object}`,
+          immutableReferences: c.evm.deployedBytecode.immutableReferences ?? {},
+        },
+        null,
+        2,
+      ),
     );
     const size = c.evm.deployedBytecode.object.length / 2;
     if (size > 0) console.log(`${name.padEnd(16)} ${String(size).padStart(6)} bytes`);

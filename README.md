@@ -157,6 +157,7 @@ off every time.
 pnpm install
 pnpm build             # solc 0.8.30 -> out/*.json
 pnpm gates             # five checks against live chain state, no gas needed
+pnpm verify            # proves the deployed contracts are built from this source
 
 # needs STT in the deployer wallet
 pnpm deploy            # writes CROSS_ADDRESS and VAULT_ADDRESS into .env

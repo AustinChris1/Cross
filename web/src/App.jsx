@@ -6,7 +6,6 @@ import {
   Copy,
   Swords,
   History,
-  TrendingUpDown,
   ArrowLeft,
   Check,
   CheckCircle2,
