@@ -56,10 +56,23 @@ flow at a priced edge, and it can lose.
    market if needed, redeems the winning leg through `BinaryMarketsModule.redeem`, and pays
    the winner. A voided window refunds each side its own stake exactly.
 
-Settlement is permissionless by design. `CrossReactor` additionally subscribes to
-`BinarySettlement.MarketFinalized` through Somnia's reactivity precompile so payout can land
-in the same block the market finalizes, with no keeper and no user click. The reactor is
-strictly additive: if it is unfunded or unsubscribed, `settle` still works for anyone.
+Settlement is permissionless by design, and reactivity is layered on top of it in two ways.
+
+**Live: `somnia_watch`.** The solver holds a websocket subscription, so the node pushes
+`ChallengePosted`, `Resolved` and `Voided` the block they land in and the solver acts on them
+rather than waiting for its next poll. The polling loop stays as a heartbeat, because a dropped
+socket must never mean an unsettled match. This needs no funding and it is running.
+
+**Written but not deployed: `CrossReactor`.** The on-chain flavour subscribes through the
+reactivity precompile so payout lands in the finalizing block with no off-chain process at all.
+The precompile requires the subscribing contract itself to hold
+`SUBSCRIPTION_OWNER_MINIMUM_BALANCE`, which is **32 STT**. Public faucets pay 0.1 STT a day, so
+that floor is out of reach for a hackathon build, and the contract has never been deployed. It
+compiles, it is included for review, and `DEPLOY_REACTOR=true` deploys it on a funded account.
+Filed in the SDK feedback, since the floor makes on-chain reactivity unreachable for exactly the
+developers a hackathon is trying to reach.
+
+Either way the escrow does not depend on it: `settle` is callable by anyone, forever.
 
 ## Deployed on Shannon
 
@@ -121,7 +134,7 @@ The full lifecycle runs on chain with `scripts/live-test.mjs`.
 contracts/
   Cross.sol            escrow, mint-a-pair fill, permissionless settlement
   FadeVault.sol        depositor pool that takes the other side, with on-chain risk caps
-  CrossReactor.sol     reactivity subscription that settles in the finalizing block
+  CrossReactor.sol     on-chain reactivity handler; compiles, not deployed, see above
   sim/SimFill.sol      eth_call harnesses that prove the flow without gas
 solver/
   pricing.mjs          digital-option fair value, realized vol, quoting

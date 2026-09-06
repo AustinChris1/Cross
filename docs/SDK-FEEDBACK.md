@@ -172,3 +172,27 @@ Suggestions, in order of preference:
 A related sharp edge: a venue that lists many high frequency markets alongside a few slow ones
 makes `listPastBinaryMarkets({ limit: 20 })` useless for finding a slow market, because the
 page fills with 1m rows. Server-side filtering on cadence or resolution mode would help.
+
+## The 32 STT floor puts on-chain reactivity out of reach of hackathon builders
+
+`SomniaExtensions._subscribe` requires `address(this).balance >= 32 ether` before the precompile
+will accept a Solidity handler subscription. The intent is clear enough, it is sybil resistance
+on a shared queue.
+
+The effect on a hackathon is that on-chain reactivity is not attemptable. Public Shannon faucets
+pay 0.1 STT per day per address, so reaching the floor takes 320 days of claiming, and the
+balance must sit on the subscribing contract rather than the developer's wallet. We wrote the
+handler, compiled it, and could not deploy it.
+
+We used `somnia_watch` instead, which needs no balance and delivers the same events over a
+websocket with same-block `eth_call` results attached. That worked immediately and is what ships
+in our solver. It is a good primitive and it deserves more prominence in the docs than it gets,
+because it is the one a new developer can actually reach.
+
+Suggestions:
+
+1. Lower or waive the floor on testnet. Sybil resistance matters much less where the token is
+   free, and the current value makes the flagship feature undemonstrable on Shannon.
+2. If the floor stays, say so at the top of the reactivity docs, with the number, so nobody
+   writes a handler before discovering it.
+3. Consider a faucet endpoint that funds a contract address for this specific purpose.
