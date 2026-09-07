@@ -9,3 +9,7 @@ artifacts/
 .DS_Store
 web/.next/
 web/dist/
+
+# Demo production material, internal to the shoot
+docs/DEMO.md
+docs/DEMO-BRIEF.md
