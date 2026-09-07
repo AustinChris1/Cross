@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
+/* Sampled from somnia.network and dreamdex.io: neutral near-black, no colour cast, with
+   dreamDEX's own green and violet. Both sites are monospace-first, so CROSS is too. */
 @theme {
-  --color-ground: #080b11;
-  --color-surface: #0e131c;
-  --color-surface-2: #141b26;
-  --color-raised: #1b2430;
-  --color-line: #212c3b;
-  --color-ink: #eef3f9;
-  --color-ink-2: #a7b4c4;
-  --color-muted: #6b7a8d;
-  --color-up: #2ee6a8;
-  --color-down: #ff5470;
+  --color-ground: #070707;
+  --color-surface: #131313;
+  --color-surface-2: #1a1a1a;
+  --color-raised: #242424;
+  --color-line: #2b2b2b;
+  --color-ink: #f5f5f5;
+  --color-ink-2: #afafaf;
+  --color-muted: #8a8a8a;
+  --color-up: #00fa89;
+  --color-down: #ff4d6d;
   --color-gold: #ffc65c;
-  --color-violet: #8b7cf6;
+  --color-violet: #6e6eed;
 
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Space Grotesk", "Source Code Pro", ui-sans-serif, sans-serif;
+  --font-mono: "Source Code Pro", ui-monospace, monospace;
 }
 
 @layer base {
@@ -26,7 +28,7 @@
   body {
     background: var(--color-ground);
     color: var(--color-ink);
-    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    font-family: "Source Code Pro", ui-monospace, monospace;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
@@ -64,12 +66,11 @@
   inset: -30% -10% auto;
   height: 760px;
   pointer-events: none;
-  filter: blur(70px);
-  opacity: 0.5;
+  filter: blur(90px);
+  opacity: 0.28;
   background:
-    radial-gradient(38% 46% at 22% 30%, rgba(46, 230, 168, 0.5), transparent 70%),
-    radial-gradient(34% 44% at 72% 24%, rgba(255, 84, 112, 0.42), transparent 70%),
-    radial-gradient(30% 40% at 50% 60%, rgba(139, 124, 246, 0.36), transparent 70%);
+    radial-gradient(38% 46% at 22% 30%, rgba(0, 250, 137, 0.34), transparent 70%),
+    radial-gradient(34% 44% at 72% 24%, rgba(110, 110, 237, 0.3), transparent 70%);
   animation: drift 22s ease-in-out infinite alternate;
 }
 
@@ -80,16 +81,6 @@
   100% {
     transform: translate3d(3%, 3%, 0) scale(1.1);
   }
-}
-
-.grid-veil {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
 }
 
 .glass {

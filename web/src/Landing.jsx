@@ -53,7 +53,8 @@ function Counter({ to, decimals = 0, prefix = "", suffix = "" }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true });
   const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 60, damping: 18 });
+  // Snappy on purpose: a slow count means the hero shows a number that is briefly wrong.
+  const spring = useSpring(mv, { stiffness: 170, damping: 24 });
   const [shown, setShown] = useState("0");
   useEffect(() => {
     if (inView && to != null) mv.set(to);
@@ -131,7 +132,6 @@ export default function Landing({ go }) {
       {/* hero */}
       <section ref={heroRef} className="relative overflow-hidden px-6 pt-28 pb-24">
         <div className="aurora" />
-        <div className="grid-veil" />
         <motion.div style={{ y: heroY, opacity: heroFade }} className="relative mx-auto max-w-6xl">
           <motion.div
             variants={rise}
