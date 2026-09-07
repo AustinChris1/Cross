@@ -74,6 +74,10 @@ developers a hackathon is trying to reach.
 
 Either way the escrow does not depend on it: `settle` is callable by anyone, forever.
 
+## Live
+
+**App:** https://somniacross.vercel.app
+
 ## Deployed on Shannon
 
 | | |
