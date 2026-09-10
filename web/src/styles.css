@@ -45,6 +45,21 @@
     font-family: var(--font-mono);
   }
 
+  /* Tailwind v4's preflight leaves buttons on the browser default, which is an arrow. Anything
+     that responds to a click should say so under the cursor. */
+  button,
+  [role="button"],
+  summary,
+  select,
+  a[href] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: var(--color-up);
     color: #05231a;
