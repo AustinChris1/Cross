@@ -14,9 +14,11 @@ Import the repository, then set:
 | Output directory | `dist` |
 | Install command | `npm install` (set in `web/vercel.json`) |
 
-The install command is pinned to npm on purpose. pnpm 10 and later refuse to finish an install
-when a dependency's build script is unapproved, and esbuild trips that, which fails the deploy
-before the build ever runs. esbuild only needs its postinstall on platforms without a prebuilt
+The install command is pinned to npm on purpose. pnpm refuses to finish an install while a
+dependency's build script is unapproved, and esbuild trips that, which fails the deploy before
+the build ever runs. `web/pnpm-workspace.yaml` answers it for local use, but the key differs by
+pnpm version (`allowBuilds` from 11, `onlyBuiltDependencies` before it) and the host's version
+is not ours to choose, so the hosted build takes the path that has actually been verified. esbuild only needs its postinstall on platforms without a prebuilt
 binary, so npm installing it is not a compromise. Local development still uses pnpm; both
 lockfiles are committed and `web/package-lock.json` exists solely to make the hosted build
 reproducible.

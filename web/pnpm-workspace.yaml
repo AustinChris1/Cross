@@ -1,5 +1,8 @@
 packages:
   - '.'
 # esbuild ships a prebuilt binary through @esbuild/<platform>, so its postinstall is optional.
+# pnpm 11 gates installs on this being answered; the key was onlyBuiltDependencies before 11.
+allowBuilds:
+  esbuild: true
 onlyBuiltDependencies:
   - esbuild
